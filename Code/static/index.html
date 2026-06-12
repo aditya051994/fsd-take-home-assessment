@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Sync Service - Meeting Reconciliation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .controls label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .controls select,
+        .controls input,
+        .controls button {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .controls select,
+        .controls input {
+            background: white;
+            color: #333;
+        }
+
+        .controls button {
+            background: #667eea;
+            color: white;
+            border: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .controls button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+            background: white;
+            padding: 15px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -17px;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-button:hover {
+            color: #667eea;
+        }
+
+        .meetings-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .meeting-item {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            transition: all 0.3s ease;
+        }
+
+        .meeting-item:last-child {
+            border-bottom: none;
+        }
+
+        .meeting-item:hover {
+            background: #f9f9f9;
+        }
+
+        .meeting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+
+        .meeting-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .meeting-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .badge-matched {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-crm {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .badge-calendar {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-conflict {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .meeting-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            font-size: 13px;
+            color: #666;
+            margin: 10px 0;
+        }
+
+        .detail-item {
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 3px;
+        }
+
+        .detail-value {
+            color: #666;
+            word-break: break-word;
+        }
+
+        .conflicts {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .conflict-item {
+            font-size: 12px;
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .conflict-field {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .source-indicator {
+            display: inline-block;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 5px;
+        }
+
+        .source-crm {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .source-calendar {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 20px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: white;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📅 Event Sync Service</h1>
+            <p class="subtitle">Reconciling CRM and Calendar meetings into a unified view</p>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="number" id="total-meetings">0</div>
+                    <div class="label">Total Meetings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="matched-pairs">0</div>
+                    <div class="label">Matched Pairs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="crm-only">0</div>
+                    <div class="label">CRM Only</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="calendar-only">0</div>
+                    <div class="label">Calendar Only</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="with-conflicts">0</div>
+                    <div class="label">With Conflicts</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <label for="filter-type">Filter by Type:</label>
+            <select id="filter-type">
+                <option value="">All</option>
+                <option value="Matched">Matched</option>
+                <option value="CRM Only">CRM Only</option>
+                <option value="Calendar Only">Calendar Only</option>
+            </select>
+
+            <label for="filter-conflicts">Show:</label>
+            <select id="filter-conflicts">
+                <option value="">All Meetings</option>
+                <option value="conflicts">Only with Conflicts</option>
+                <option value="no-conflicts">Only without Conflicts</option>
+            </select>
+
+            <button onclick="applyFilters()">Apply Filters</button>
+            <button onclick="resetFilters()">Reset</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('meetings')">Meetings</button>
+            <button class="tab-button" onclick="switchTab('statistics')">Statistics</button>
+            <button class="tab-button" onclick="switchTab('raw-data')">Raw Data</button>
+        </div>
+
+        <div id="meetings-tab" class="tab-content">
+            <div class="meetings-container">
+                <div id="meetings-list" class="loading">Loading meetings...</div>
+                <div id="pagination" class="pagination"></div>
+            </div>
+        </div>
+
+        <div id="statistics-tab" class="tab-content" style="display: none;">
+            <div class="meetings-container">
+                <div id="statistics-content" style="padding: 20px;">Loading statistics...</div>
+            </div>
+        </div>
+
+        <div id="raw-data-tab" class="tab-content" style="display: none;">
+            <div class="meetings-container">
+                <div id="raw-data-content" style="padding: 20px;">Loading raw data...</div>
+            </div>
+        </div>
+
+        <footer>
+            Event Sync Service v1.0 | Powered by FastAPI & React
+        </footer>
+    </div>
+
+    <script>
+        let currentPage = 0;
+        let currentFilter = {};
+        let allMeetings = [];
+
+        const API_BASE = '/api';
+
+        async function loadSummary() {
+            try {
+                const response = await fetch(`${API_BASE}/summary`);
+                const data = await response.json();
+                
+                document.getElementById('total-meetings').textContent = data.total_meetings;
+                document.getElementById('matched-pairs').textContent = data.matched_pairs;
+                document.getElementById('crm-only').textContent = data.crm_only;
+                document.getElementById('calendar-only').textContent = data.calendar_only;
+
+                // Count conflicts
+                const conflicts = await fetch(`${API_BASE}/conflicts?limit=1000`);
+                const conflictData = await conflicts.json();
+                document.getElementById('with-conflicts').textContent = conflictData.total;
+            } catch (error) {
+                console.error('Error loading summary:', error);
+            }
+        }
+
+        async function loadMeetings(page = 0) {
+            try {
+                currentPage = page;
+                let url = `${API_BASE}/meetings?skip=${page * 25}&limit=25`;
+                
+                if (currentFilter.type) {
+                    url += `&reconciliation_type=${currentFilter.type}`;
+                }
+                if (currentFilter.conflicts !== undefined && currentFilter.conflicts !== '') {
+                    url += `&has_conflicts=${currentFilter.conflicts === 'conflicts'}`;
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                allMeetings = data.meetings;
+                
+                renderMeetings(data.meetings, data.total);
+                renderPagination(page, data.total);
+            } catch (error) {
+                document.getElementById('meetings-list').innerHTML = `<div class="error">Error loading meetings: ${error.message}</div>`;
+            }
+        }
+
+        function renderMeetings(meetings, total) {
+            if (meetings.length === 0) {
+                document.getElementById('meetings-list').innerHTML = `
+                    <div class="empty-state">
+                        <p>No meetings found matching your filters</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            meetings.forEach(meeting => {
+                const combined = meeting.combined_data || {};
+                const conflicts = meeting.data_conflicts || [];
+                
+                let badge = '';
+                if (meeting.reconciliation_type === 'Matched') {
+                    badge = '<span class="meeting-badge badge-matched">✓ Matched</span>';
+                } else if (meeting.reconciliation_type === 'CRM Only') {
+                    badge = '<span class="meeting-badge badge-crm">📋 CRM</span>';
+                } else if (meeting.reconciliation_type === 'Calendar Only') {
+                    badge = '<span class="meeting-badge badge-calendar">📅 Calendar</span>';
+                }
+
+                let conflictHtml = '';
+                if (conflicts.length > 0) {
+                    conflictHtml = `
+                        <div class="conflicts">
+                            <strong>⚠️ Data Conflicts (${conflicts.length}):</strong>
+                            ${conflicts.map(c => `
+                                <div class="conflict-item">
+                                    <span class="conflict-field">${c.field}</span>: 
+                                    CRM: "${c.crm_value}" | Calendar: "${c.calendar_value}"
+                                    <span style="color: #999; font-size: 11px;">[${c.severity}]</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="meeting-item">
+                        <div class="meeting-header">
+                            <div>
+                                <div class="meeting-title">${combined.subject || 'Unknown Meeting'}</div>
+                                <div>${badge}</div>
+                            </div>
+                        </div>
+                        <div class="meeting-details">
+                            ${combined.client_company ? `
+                                <div class="detail-item">
+                                    <div class="detail-label">Client</div>
+                                    <div class="detail-value">${combined.client_company}</div>
+                                </div>
+                            ` : ''}
+                            ${combined.meeting_date ? `
+                                <div class="detail-item">
+                                    <div class="detail-label">Date</div>
+                                    <div class="detail-value">${combined.meeting_date}</div>
+                                </div>
+                            ` : ''}
+                            ${combined.location ? `
+                                <div class="detail-item">
+                                    <div class="detail-label">Location</div>
+                                    <div class="detail-value">${combined.location}</div>
+                                </div>
+                            ` : ''}
+                            ${combined.relationship_owner ? `
+                                <div class="detail-item">
+                                    <div class="detail-label">Owner</div>
+                                    <div class="detail-value">${combined.relationship_owner}</div>
+                                </div>
+                            ` : ''}
+                            ${combined.status ? `
+                                <div class="detail-item">
+                                    <div class="detail-label">Status</div>
+                                    <div class="detail-value">${combined.status}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${conflictHtml}
+                    </div>
+                `;
+            });
+
+            document.getElementById('meetings-list').innerHTML = html;
+        }
+
+        function renderPagination(page, total) {
+            const totalPages = Math.ceil(total / 25);
+            let html = '';
+
+            if (page > 0) {
+                html += `<button onclick="loadMeetings(${page - 1})">← Previous</button>`;
+            }
+
+            for (let i = Math.max(0, page - 2); i < Math.min(totalPages, page + 3); i++) {
+                if (i === page) {
+                    html += `<button style="background: #667eea; color: white;">${i + 1}</button>`;
+                } else {
+                    html += `<button onclick="loadMeetings(${i})">${i + 1}</button>`;
+                }
+            }
+
+            if (page < totalPages - 1) {
+                html += `<button onclick="loadMeetings(${page + 1})">Next →</button>`;
+            }
+
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        async function loadStatistics() {
+            try {
+                const response = await fetch(`${API_BASE}/statistics`);
+                const data = await response.json();
+
+                let html = `
+                    <h2>Reconciliation Statistics</h2>
+                    <div style="margin-top: 20px;">
+                        <h3>Summary</h3>
+                        <p><strong>Total Meetings:</strong> ${data.total_meetings}</p>
+                        <p><strong>Total Data Conflicts:</strong> ${data.total_conflicts}</p>
+                        <p><strong>Average Conflicts per Meeting:</strong> ${data.average_conflicts_per_meeting}</p>
+                        
+                        <h3 style="margin-top: 20px;">By Reconciliation Type</h3>
+                        <ul>
+                            ${Object.entries(data.by_reconciliation_type).map(([type, count]) => 
+                                `<li>${type}: ${count}</li>`
+                            ).join('')}
+                        </ul>
+                        
+                        <h3 style="margin-top: 20px;">Conflicts by Severity</h3>
+                        <ul>
+                            ${Object.entries(data.conflict_by_severity).map(([severity, count]) => 
+                                `<li>${severity.charAt(0).toUpperCase() + severity.slice(1)}: ${count}</li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                `;
+                document.getElementById('statistics-content').innerHTML = html;
+            } catch (error) {
+                document.getElementById('statistics-content').innerHTML = `<div class="error">Error loading statistics: ${error.message}</div>`;
+            }
+        }
+
+        async function loadRawData() {
+            try {
+                const crmResponse = await fetch(`${API_BASE}/crm-events`);
+                const crmData = await crmResponse.json();
+                
+                const calResponse = await fetch(`${API_BASE}/calendar-events`);
+                const calData = await calResponse.json();
+
+                let html = `
+                    <h2>Raw Data Sources</h2>
+                    <div style="margin-top: 20px;">
+                        <h3>CRM Events (${crmData.count})</h3>
+                        <textarea readonly style="width: 100%; height: 200px; font-family: monospace; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+${JSON.stringify(crmData.events.slice(0, 2), null, 2)}
+...
+                        </textarea>
+                        
+                        <h3 style="margin-top: 20px;">Calendar Events (${calData.count})</h3>
+                        <textarea readonly style="width: 100%; height: 200px; font-family: monospace; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+${JSON.stringify(calData.events.slice(0, 2), null, 2)}
+...
+                        </textarea>
+                    </div>
+                `;
+                document.getElementById('raw-data-content').innerHTML = html;
+            } catch (error) {
+                document.getElementById('raw-data-content').innerHTML = `<div class="error">Error loading raw data: ${error.message}</div>`;
+            }
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+
+            // Show selected tab
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            event.target.classList.add('active');
+
+            if (tabName === 'statistics') {
+                loadStatistics();
+            } else if (tabName === 'raw-data') {
+                loadRawData();
+            }
+        }
+
+        function applyFilters() {
+            currentFilter = {
+                type: document.getElementById('filter-type').value,
+                conflicts: document.getElementById('filter-conflicts').value
+            };
+            loadMeetings(0);
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-type').value = '';
+            document.getElementById('filter-conflicts').value = '';
+            currentFilter = {};
+            loadMeetings(0);
+        }
+
+        // Initial load
+        window.addEventListener('load', () => {
+            loadSummary();
+            loadMeetings(0);
+        });
+    </script>
+</body>
+</html>
